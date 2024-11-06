@@ -29,27 +29,8 @@ export function activate(context: vscode.ExtensionContext) {
 	outputChannel.appendLine("Cline extension activated")
 
 	const sidebarProvider = new ClineProvider(context, outputChannel)
-	const wsProvider = new WebSocketProvider(context, outputChannel)
 
-	// Start the external API server
-	const server = startExternalAPIServer(context, outputChannel, wsProvider)
-	context.subscriptions.push({ dispose: () => server.close() })
-
-	context.subscriptions.push(
-		vscode.window.registerWebviewViewProvider(ClineProvider.sideBarId, sidebarProvider, {
-			webviewOptions: { retainContextWhenHidden: true },
-		})
-	)
-
-	context.subscriptions.push(
-		vscode.commands.registerCommand("cline.plusButtonClicked", async () => {
-			outputChannel.appendLine("Plus button Clicked")
-			await sidebarProvider.clearTask()
-			await sidebarProvider.postStateToWebview()
-			await sidebarProvider.postMessageToWebview({ type: "action", action: "chatButtonClicked" })
-		})
-	)
-
+	// Register commands first
 	const openClineInNewTab = async () => {
 		outputChannel.appendLine("Opening Cline in new tab")
 		// (this example uses webviewProvider activation event which is necessary to deserialize cached webview, but since we use retainContextWhenHidden, we don't need to use that event)
@@ -83,21 +64,35 @@ export function activate(context: vscode.ExtensionContext) {
 		await vscode.commands.executeCommand("workbench.action.lockEditorGroup")
 	}
 
+	context.subscriptions.push(vscode.commands.registerCommand("cline.plusButtonClicked", async () => {
+		outputChannel.appendLine("Plus button Clicked")
+		await sidebarProvider.clearTask()
+		await sidebarProvider.postStateToWebview()
+		await sidebarProvider.postMessageToWebview({ type: "action", action: "chatButtonClicked" })
+	}))
+
 	context.subscriptions.push(vscode.commands.registerCommand("cline.popoutButtonClicked", openClineInNewTab))
 	context.subscriptions.push(vscode.commands.registerCommand("cline.openInNewTab", openClineInNewTab))
 
+	context.subscriptions.push(vscode.commands.registerCommand("cline.settingsButtonClicked", () => {
+		sidebarProvider.postMessageToWebview({ type: "action", action: "settingsButtonClicked" })
+	}))
+
+	context.subscriptions.push(vscode.commands.registerCommand("cline.historyButtonClicked", () => {
+		sidebarProvider.postMessageToWebview({ type: "action", action: "historyButtonClicked" })
+	}))
+
+	// Register webview provider
 	context.subscriptions.push(
-		vscode.commands.registerCommand("cline.settingsButtonClicked", () => {
-			//vscode.window.showInformationMessage(message)
-			sidebarProvider.postMessageToWebview({ type: "action", action: "settingsButtonClicked" })
+		vscode.window.registerWebviewViewProvider(ClineProvider.sideBarId, sidebarProvider, {
+			webviewOptions: { retainContextWhenHidden: true },
 		})
 	)
 
-	context.subscriptions.push(
-		vscode.commands.registerCommand("cline.historyButtonClicked", () => {
-			sidebarProvider.postMessageToWebview({ type: "action", action: "historyButtonClicked" })
-		})
-	)
+	// Initialize WebSocket provider and start server after commands are registered
+	const wsProvider = new WebSocketProvider(context, outputChannel)
+	const server = startExternalAPIServer(context, outputChannel, wsProvider)
+	context.subscriptions.push({ dispose: () => server.close() })
 
 	/*
 	We use the text document content provider API to show the left side for diff view by creating a virtual document for the original content. This makes it readonly so users know to edit the right side if they want to keep their changes.

@@ -70,15 +70,6 @@ Interestingly, some environments like Cursor enable these APIs even without the 
 This approach allows us to leverage advanced features when available while ensuring broad compatibility.
 */
 declare module "vscode" {
-	// https://github.com/microsoft/vscode/blob/f0417069c62e20f3667506f4b7e53ca0004b4e3e/src/vscode-dts/vscode.d.ts#L7442
-	interface Terminal {
-		shellIntegration?: {
-			cwd?: vscode.Uri
-			executeCommand?: (command: string) => {
-				read: () => AsyncIterable<string>
-			}
-		}
-	}
 	// https://github.com/microsoft/vscode/blob/f0417069c62e20f3667506f4b7e53ca0004b4e3e/src/vscode-dts/vscode.d.ts#L10794
 	interface Window {
 		onDidStartTerminalShellExecution?: (
@@ -86,6 +77,15 @@ declare module "vscode" {
 			thisArgs?: any,
 			disposables?: vscode.Disposable[]
 		) => vscode.Disposable
+	}
+}
+
+type ExtendedTerminal = vscode.Terminal & {
+	shellIntegration?: {
+		cwd?: vscode.Uri
+		executeCommand?: (command: string) => {
+			read: () => AsyncIterable<string>
+		}
 	}
 }
 
@@ -139,12 +139,13 @@ export class TerminalManager {
 		})
 
 		// if shell integration is already active, run the command immediately
-		if (terminalInfo.terminal.shellIntegration) {
+		const extendedTerminal = terminalInfo.terminal as ExtendedTerminal
+		if (extendedTerminal.shellIntegration) {
 			process.waitForShellIntegration = false
 			process.run(terminalInfo.terminal, command)
 		} else {
 			// docs recommend waiting 3s for shell integration to activate
-			pWaitFor(() => terminalInfo.terminal.shellIntegration !== undefined, { timeout: 4000 }).finally(() => {
+			pWaitFor(() => (terminalInfo.terminal as ExtendedTerminal).shellIntegration !== undefined, { timeout: 4000 }).finally(() => {
 				const existingProcess = this.processes.get(terminalInfo.id)
 				if (existingProcess && existingProcess.waitForShellIntegration) {
 					existingProcess.waitForShellIntegration = false
@@ -162,7 +163,8 @@ export class TerminalManager {
 			if (t.busy) {
 				return false
 			}
-			const terminalCwd = t.terminal.shellIntegration?.cwd // one of cline's commands could have changed the cwd of the terminal
+			const extendedTerminal = t.terminal as ExtendedTerminal
+			const terminalCwd = extendedTerminal.shellIntegration?.cwd // one of cline's commands could have changed the cwd of the terminal
 			if (!terminalCwd) {
 				return false
 			}

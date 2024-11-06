@@ -69,7 +69,6 @@ const extensionConfig = {
 	logLevel: "silent",
 	plugins: [
 		copyWasmFiles,
-		/* add to the end of plugins array */
 		esbuildProblemMatcherPlugin,
 	],
 	entryPoints: ["src/extension.ts"],
@@ -78,6 +77,16 @@ const extensionConfig = {
 	platform: "node",
 	outfile: "dist/extension.js",
 	external: ["vscode"],
+	metafile: true,
+	treeShaking: true,
+	define: {
+		"process.env.NODE_ENV": production ? '"production"' : '"development"'
+	},
+	loader: {
+		".ts": "ts",
+		".js": "js",
+		".json": "json"
+	}
 }
 
 async function main() {
@@ -85,7 +94,11 @@ async function main() {
 	if (watch) {
 		await extensionCtx.watch()
 	} else {
-		await extensionCtx.rebuild()
+		const result = await extensionCtx.rebuild()
+		if (production) {
+			// Write metafile for analysis
+			fs.writeFileSync("meta.json", JSON.stringify(result.metafile))
+		}
 		await extensionCtx.dispose()
 	}
 }

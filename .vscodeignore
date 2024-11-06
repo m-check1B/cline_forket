@@ -40,3 +40,6 @@ webview-ui/node_modules/**
 
 # Include icons
 !assets/icons/**
+
+# Make sure dist directory is included
+!dist/**
