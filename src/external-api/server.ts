@@ -1,3 +1,4 @@
+// Ahoy! This be the server file for Cline's external API - handles HTTP and WebSocket communication
 import * as http from 'http';
 import * as vscode from 'vscode';
 import { WebSocketProvider } from "../core/webview/WebSocketProvider";

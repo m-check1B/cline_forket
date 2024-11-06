@@ -1,6 +1,6 @@
 import React, { forwardRef, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import DynamicTextArea from "react-textarea-autosize"
-import { mentionRegex, mentionRegexGlobal } from "../../../../src/shared/context-mentions"
+import { mentionRegex, mentionRegexGlobal } from "../shared/context-mentions"
 import { useExtensionState } from "../../context/ExtensionStateContext"
 import {
 	ContextMenuOptionType,

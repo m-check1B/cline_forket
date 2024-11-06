@@ -6,7 +6,7 @@ import {
 	BrowserActionResult,
 	ClineMessage,
 	ClineSayBrowserAction,
-} from "../../../../src/shared/ExtensionMessage"
+} from "../shared/ExtensionMessage"
 import { vscode } from "../../utils/vscode"
 import CodeBlock, { CODE_BLOCK_BG_COLOR } from "../common/CodeBlock"
 import { ChatRowContent, ProgressIndicator } from "./ChatRow"

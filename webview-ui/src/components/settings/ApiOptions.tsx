@@ -26,8 +26,8 @@ import {
 	openRouterDefaultModelInfo,
 	vertexDefaultModelId,
 	vertexModels,
-} from "../../../../src/shared/api"
-import { ExtensionMessage } from "../../../../src/shared/ExtensionMessage"
+} from "../shared/api"
+import { ExtensionMessage } from "../shared/ExtensionMessage"
 import { useExtensionState } from "../../context/ExtensionStateContext"
 import { vscode } from "../../utils/vscode"
 import VSCodeButtonLink from "../common/VSCodeButtonLink"
