@@ -224,7 +224,7 @@ export function startExternalAPIServer(
         });
     });
 
-    const PORT = 7777;
+    const PORT = 7230;
     server.listen(PORT, 'localhost', () => {
         outputChannel.appendLine(`Cline External API Server running on http://localhost:${PORT}`);
         outputChannel.appendLine(`WebSocket server running on ws://localhost:${PORT + 1}`);
