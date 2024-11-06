@@ -1,7 +1,7 @@
 {
   "name": "claude-dev",
-  "displayName": "Cline (prev. Claude Dev)",
-  "description": "Autonomous coding agent right in your IDE capable of creating/editing files, running commands, using the browser and more with your permission every step of the way.",
+  "displayName": "Cline with API",
+  "description": "Autonomous coding agent right in your IDE capable of creating/editing files, running commands, using the browser and more with your permission every step of the way. Now with full API for externall control.",
   "version": "2.1.3",
   "icon": "assets/icons/icon.png",
   "galleryBanner": {
@@ -12,13 +12,13 @@
     "vscode": "^1.84.0"
   },
   "author": {
-    "name": "Cline Bot Inc."
+    "name": "Jack Wolf"
   },
   "license": "Apache-2.0",
-  "publisher": "saoudrizwan",
+  "publisher": "m-check1B",
   "repository": {
     "type": "git",
-    "url": "https://github.com/cline/cline"
+    "url": "https://github.com/m-check1B/cline-with-api"
   },
   "homepage": "https://cline.bot",
   "categories": [
@@ -148,7 +148,7 @@
     "esbuild": "^0.21.5",
     "eslint": "^8.57.0",
     "npm-run-all": "^4.1.5",
-    "typescript": "^5.4.5"
+    "typescript": "^5.4.3"
   },
   "dependencies": {
     "@anthropic-ai/bedrock-sdk": "^0.10.2",
@@ -156,6 +156,7 @@
     "@anthropic-ai/vertex-sdk": "^0.4.1",
     "@google/generative-ai": "^0.18.0",
     "@types/clone-deep": "^4.0.4",
+    "@types/express": "^4.17.21",
     "@types/pdf-parse": "^1.1.4",
     "@types/turndown": "^5.0.5",
     "@vscode/codicons": "^0.0.36",
@@ -165,6 +166,7 @@
     "default-shell": "^2.2.0",
     "delay": "^6.0.0",
     "diff": "^5.2.0",
+    "express": "^4.18.2",
     "fast-deep-equal": "^3.1.3",
     "globby": "^14.0.2",
     "isbinaryfile": "^5.0.2",
@@ -181,8 +183,6 @@
     "tree-sitter-wasms": "^0.1.11",
     "turndown": "^7.2.0",
     "web-tree-sitter": "^0.22.6",
-    "express": "^4.18.2",
-    "@types/express": "^4.17.21",
     "ws": "^8.14.2"
   }
 }

@@ -26,11 +26,17 @@ export async function handleScreenshot(
             let lastHeight = 0;
             while (true) {
                 const result = await browserSession.scrollDown();
-                if (!result.screenshot) break;
+                if (!result.screenshot) {
+                    break;
+                }
                 const match = result.currentMousePosition?.match(/\d+,(\d+)/);
-                if (!match) break;
+                if (!match) {
+                    break;
+                }
                 const currentHeight = parseInt(match[1]);
-                if (currentHeight <= lastHeight) break;
+                if (currentHeight <= lastHeight) {
+                    break;
+                }
                 lastHeight = currentHeight;
             }
             while (await browserSession.scrollUp()) {}

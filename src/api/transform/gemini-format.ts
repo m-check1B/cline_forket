@@ -62,8 +62,8 @@ export function convertAnthropicContentToGemini(
 					} as FunctionResponsePart
 				} else {
 					// The only case when tool_result could be array is when the tool failed and we're providing ie user feedback potentially with images
-					const textParts = block.content.filter((part) => part.type === "text")
-					const imageParts = block.content.filter((part) => part.type === "image")
+					const textParts = block.content.filter((part): part is Anthropic.Messages.TextBlockParam => part.type === "text")
+					const imageParts = block.content.filter((part): part is Anthropic.Messages.ImageBlockParam => part.type === "image")
 					const text = textParts.length > 0 ? textParts.map((part) => part.text).join("\n\n") : ""
 					const imageText = imageParts.length > 0 ? "\n\n(See next part for image)" : ""
 					return [

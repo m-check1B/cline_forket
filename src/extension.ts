@@ -6,6 +6,8 @@ import { ClineProvider } from "./core/webview/ClineProvider"
 import { createClineAPI } from "./exports"
 import "./utils/path" // necessary to have access to String.prototype.toPosix
 import { DIFF_VIEW_URI_SCHEME } from "./integrations/editor/DiffViewProvider"
+import { WebSocketProvider } from "./core/webview/WebSocketProvider"
+import { startExternalAPIServer } from "./external-api/server"
 
 /*
 Built using https://github.com/microsoft/vscode-webview-ui-toolkit
@@ -27,6 +29,11 @@ export function activate(context: vscode.ExtensionContext) {
 	outputChannel.appendLine("Cline extension activated")
 
 	const sidebarProvider = new ClineProvider(context, outputChannel)
+	const wsProvider = new WebSocketProvider(context, outputChannel)
+
+	// Start the external API server
+	const server = startExternalAPIServer(context, outputChannel, wsProvider)
+	context.subscriptions.push({ dispose: () => server.close() })
 
 	context.subscriptions.push(
 		vscode.window.registerWebviewViewProvider(ClineProvider.sideBarId, sidebarProvider, {
