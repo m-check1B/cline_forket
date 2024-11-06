@@ -1,74 +1,75 @@
 import * as http from 'http';
 import * as vscode from 'vscode';
-import { ClineProvider } from "../core/webview/ClineProvider";
+import { WebSocketProvider } from "../core/webview/WebSocketProvider";
 import { createClineAPI } from '../exports';
-import { APIResponse, HealthResponse, APIDocumentation, TaskRequest, MessageRequest } from './types';
+import { BrowserSession } from '../services/browser/BrowserSession';
+import { handleRequest } from './utils';
+import { getApiDocumentation } from './docs';
+import { 
+    handleTaskRequest, 
+    handleMessageRequest, 
+    handleCustomInstructionsSet, 
+    handleCustomInstructionsGet 
+} from './handlers/task';
+import { 
+    handleButtonPrimary, 
+    handleButtonSecondary, 
+    handleViewChange, 
+    handleMessageDisplay 
+} from './handlers/ui';
+import { 
+    handleScreenshot, 
+    handleImageUpload 
+} from './handlers/media';
+import { 
+    handleConfigurationUpdate, 
+    handleConfigurationGet, 
+    handleStatusGet, 
+    handleHistoryGet 
+} from './handlers/config';
+import {
+    handleTaskResume,
+    handleTaskCancel,
+    handleTaskDelete,
+    handleTaskExport,
+    handleTaskSearch
+} from './handlers/task-management';
+import {
+    handleEditorDiff,
+    handleDiagnostics
+} from './handlers/editor';
+import {
+    handleStateReset,
+    handleDebugOptions
+} from './handlers/settings';
+import { WebSocketHandler } from './handlers/websocket';
 
 export function startExternalAPIServer(
     context: vscode.ExtensionContext, 
     outputChannel: vscode.OutputChannel, 
-    sidebarProvider: ClineProvider
+    sidebarProvider: WebSocketProvider
 ): http.Server {
     const api = createClineAPI(outputChannel, sidebarProvider);
+    const browserSession = new BrowserSession(context);
+    const wsHandler = new WebSocketHandler(api);
 
-    // API Documentation
-    const apiDocs: APIDocumentation = {
-        version: context.extension?.packageJSON?.version || 'unknown',
-        baseUrl: 'http://localhost:7777',
-        endpoints: [
-            {
-                path: '/health',
-                method: 'GET',
-                description: 'Health check endpoint',
-                response: {
-                    status: 'healthy',
-                    timestamp: 'ISO timestamp',
-                    extensionVersion: 'string'
-                }
-            },
-            {
-                path: '/api-docs',
-                method: 'GET',
-                description: 'API documentation endpoint'
-            },
-            {
-                path: '/custom-instructions',
-                method: 'POST',
-                description: 'Set custom instructions for the AI assistant',
-                body: {
-                    value: 'string'
-                }
-            },
-            {
-                path: '/task',
-                method: 'POST',
-                description: 'Start a new task',
-                body: {
-                    task: 'string?',
-                    images: 'string[]?'
-                }
-            },
-            {
-                path: '/message',
-                method: 'POST',
-                description: 'Send a message to the current task',
-                body: {
-                    message: 'string?',
-                    images: 'string[]?'
-                }
-            },
-            {
-                path: '/button/primary',
-                method: 'POST',
-                description: 'Simulate pressing the primary button'
-            },
-            {
-                path: '/button/secondary',
-                method: 'POST',
-                description: 'Simulate pressing the secondary button'
-            }
-        ]
-    };
+    // Track view state
+    let currentView: 'history' | 'chat' = 'chat';
+    let showAnnouncement = true;
+    let isAtBottom = true;
+    let showScrollToBottom = false;
+    let expandedMessageIds: number[] = [];
+    let selectedImages: string[] = [];
+
+    // Subscribe to state changes to broadcast via WebSocket
+    sidebarProvider.onDidChangeState((state) => {
+        wsHandler.broadcastStateUpdate(state);
+    });
+
+    // Subscribe to metrics updates
+    sidebarProvider.onDidUpdateMetrics((metrics) => {
+        wsHandler.broadcastMetrics(metrics);
+    });
 
     const server = http.createServer(async (req, res) => {
         let body = '';
@@ -83,93 +84,134 @@ export function startExternalAPIServer(
                 // API Documentation endpoint
                 if (req.method === 'GET' && req.url === '/api-docs') {
                     res.writeHead(200);
-                    res.end(JSON.stringify(apiDocs, null, 2));
+                    res.end(JSON.stringify(getApiDocumentation(context.extension?.packageJSON?.version || 'unknown'), null, 2));
                     return;
                 }
 
                 // Health check endpoint
                 if (req.method === 'GET' && req.url === '/health') {
-                    const healthResponse: HealthResponse = {
+                    res.writeHead(200);
+                    res.end(JSON.stringify({
                         status: 'healthy',
                         timestamp: new Date().toISOString(),
                         extensionVersion: context.extension?.packageJSON?.version || 'unknown'
-                    };
-                    res.writeHead(200);
-                    res.end(JSON.stringify(healthResponse));
+                    }));
                     return;
                 }
 
+                let response;
                 switch (req.method) {
                     case 'POST':
                         switch (req.url) {
                             case '/custom-instructions':
-                                const response: APIResponse = await handleRequest(async () => {
-                                    await api.setCustomInstructions(JSON.parse(body).value);
-                                    return { status: 'success' };
-                                });
-                                res.writeHead(response.status === 'success' ? 200 : 500);
-                                res.end(JSON.stringify(response));
+                                response = await handleCustomInstructionsSet(api, JSON.parse(body).value);
                                 break;
-
                             case '/task':
-                                const taskData = JSON.parse(body) as TaskRequest;
-                                const taskResponse: APIResponse = await handleRequest(async () => {
-                                    await api.startNewTask(taskData.task, taskData.images);
-                                    return { status: 'success' };
-                                });
-                                res.writeHead(taskResponse.status === 'success' ? 200 : 500);
-                                res.end(JSON.stringify(taskResponse));
+                                response = await handleTaskRequest(api, JSON.parse(body));
                                 break;
-
+                            case '/task/resume':
+                                response = await handleTaskResume(api, JSON.parse(body));
+                                break;
+                            case '/task/cancel':
+                                response = await handleTaskCancel(api, JSON.parse(body));
+                                break;
+                            case '/task/delete':
+                                response = await handleTaskDelete(api, JSON.parse(body));
+                                break;
+                            case '/task/export':
+                                response = await handleTaskExport(api, JSON.parse(body));
+                                break;
                             case '/message':
-                                const messageData = JSON.parse(body) as MessageRequest;
-                                const messageResponse: APIResponse = await handleRequest(async () => {
-                                    await api.sendMessage(messageData.message, messageData.images);
-                                    return { status: 'success' };
-                                });
-                                res.writeHead(messageResponse.status === 'success' ? 200 : 500);
-                                res.end(JSON.stringify(messageResponse));
+                                response = await handleMessageRequest(api, JSON.parse(body));
                                 break;
-
+                            case '/images':
+                                response = await handleImageUpload(JSON.parse(body), selectedImages, 
+                                    (images) => selectedImages = images);
+                                break;
+                            case '/view':
+                                response = await handleViewChange(JSON.parse(body), 
+                                    (view) => currentView = view,
+                                    (show) => showAnnouncement = show);
+                                break;
+                            case '/message-display':
+                                response = await handleMessageDisplay(JSON.parse(body), expandedMessageIds,
+                                    (ids) => expandedMessageIds = ids);
+                                break;
+                            case '/config':
+                                response = await handleConfigurationUpdate(api, JSON.parse(body));
+                                break;
+                            case '/screenshot':
+                                response = await handleScreenshot(JSON.parse(body), browserSession, context);
+                                break;
                             case '/button/primary':
-                                const primaryResponse: APIResponse = await handleRequest(async () => {
-                                    await api.pressPrimaryButton();
-                                    return { status: 'success' };
-                                });
-                                res.writeHead(primaryResponse.status === 'success' ? 200 : 500);
-                                res.end(JSON.stringify(primaryResponse));
+                                response = await handleButtonPrimary(api);
                                 break;
-
                             case '/button/secondary':
-                                const secondaryResponse: APIResponse = await handleRequest(async () => {
-                                    await api.pressSecondaryButton();
-                                    return { status: 'success' };
-                                });
-                                res.writeHead(secondaryResponse.status === 'success' ? 200 : 500);
-                                res.end(JSON.stringify(secondaryResponse));
+                                response = await handleButtonSecondary(api);
                                 break;
-
+                            case '/editor/diff':
+                                response = await handleEditorDiff(api, JSON.parse(body));
+                                break;
+                            case '/settings/reset':
+                                response = await handleStateReset(api, JSON.parse(body));
+                                break;
+                            case '/settings/debug':
+                                response = await handleDebugOptions(api, JSON.parse(body));
+                                break;
                             default:
                                 res.writeHead(404);
                                 res.end(JSON.stringify({ error: 'Not Found' }));
+                                return;
                         }
                         break;
 
                     case 'GET':
-                        if (req.url === '/custom-instructions') {
-                            const instructions = await api.getCustomInstructions();
-                            res.writeHead(200);
-                            res.end(JSON.stringify({ instructions }));
-                        } else {
-                            res.writeHead(404);
-                            res.end(JSON.stringify({ error: 'Not Found' }));
+                        switch (req.url) {
+                            case '/custom-instructions':
+                                response = await handleCustomInstructionsGet(api);
+                                break;
+                            case '/status':
+                                response = await handleStatusGet(api, currentView, showAnnouncement, 
+                                    isAtBottom, showScrollToBottom, expandedMessageIds, selectedImages);
+                                break;
+                            case '/history':
+                                response = await handleHistoryGet(api);
+                                break;
+                            case '/config':
+                                response = await handleConfigurationGet(api);
+                                break;
+                            case '/task/search':
+                                const searchParams = new URLSearchParams(req.url.split('?')[1]);
+                                response = await handleTaskSearch(
+                                    api,
+                                    searchParams.get('query') || '',
+                                    searchParams.get('sort') || undefined
+                                );
+                                break;
+                            case '/editor/diagnostics':
+                                const diagParams = new URLSearchParams(req.url.split('?')[1]);
+                                const severity = diagParams.get('severity');
+                                response = await handleDiagnostics(api, {
+                                    path: diagParams.get('path') || undefined,
+                                    severity: severity as 'error' | 'warning' | 'info' | undefined
+                                });
+                                break;
+                            default:
+                                res.writeHead(404);
+                                res.end(JSON.stringify({ error: 'Not Found' }));
+                                return;
                         }
                         break;
 
                     default:
                         res.writeHead(405);
                         res.end(JSON.stringify({ error: 'Method Not Allowed' }));
+                        return;
                 }
+
+                res.writeHead(response.status === 'success' ? 200 : 500);
+                res.end(JSON.stringify(response));
+
             } catch (error) {
                 console.error('API Server Error:', error);
                 res.writeHead(500);
@@ -185,22 +227,13 @@ export function startExternalAPIServer(
     const PORT = 7777;
     server.listen(PORT, 'localhost', () => {
         outputChannel.appendLine(`Cline External API Server running on http://localhost:${PORT}`);
+        outputChannel.appendLine(`WebSocket server running on ws://localhost:${PORT + 1}`);
+    });
+
+    // Clean up WebSocket server when HTTP server closes
+    server.on('close', () => {
+        wsHandler.close();
     });
 
     return server;
-}
-
-async function handleRequest<T>(fn: () => Promise<T>): Promise<APIResponse<T>> {
-    try {
-        const result = await fn();
-        return {
-            status: 'success',
-            data: result
-        };
-    } catch (error) {
-        return {
-            status: 'error',
-            error: error instanceof Error ? error.message : 'Unknown error'
-        };
-    }
 }

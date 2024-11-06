@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import delay from "delay";
 import { ClineProvider } from "./core/webview/ClineProvider";
+import { WebSocketProvider } from "./core/webview/WebSocketProvider";
 import { createClineAPI } from "./exports";
 import "./utils/path";
 import { DIFF_VIEW_URI_SCHEME } from "./integrations/editor/DiffViewProvider";
@@ -14,7 +15,9 @@ export function activate(context: vscode.ExtensionContext) {
 
     outputChannel.appendLine("Cline extension activated");
 
+    // Create providers
     const sidebarProvider = new ClineProvider(context, outputChannel);
+    const wsProvider = new WebSocketProvider(context, outputChannel);
 
     context.subscriptions.push(
         vscode.window.registerWebviewViewProvider(ClineProvider.sideBarId, sidebarProvider, {
@@ -22,13 +25,14 @@ export function activate(context: vscode.ExtensionContext) {
         })
     );
 
-    // Start External API Server
-    const externalAPIServer = startExternalAPIServer(context, outputChannel, sidebarProvider);
+    // Start External API Server with WebSocket support
+    const externalAPIServer = startExternalAPIServer(context, outputChannel, wsProvider);
 
     // Add server to context subscriptions for proper cleanup
     context.subscriptions.push({
-        dispose: () => {
+        dispose: async () => {
             externalAPIServer.close();
+            await wsProvider.dispose();
             outputChannel.appendLine('Cline External API Server stopped');
         }
     });
@@ -37,7 +41,7 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
         vscode.commands.registerCommand('cline.startExternalAPIServer', () => {
             outputChannel.appendLine('Manually starting External API Server');
-            startExternalAPIServer(context, outputChannel, sidebarProvider);
+            startExternalAPIServer(context, outputChannel, wsProvider);
         }),
         vscode.commands.registerCommand('cline.stopExternalAPIServer', () => {
             outputChannel.appendLine('Manually stopping External API Server');

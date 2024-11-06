@@ -5,3 +5,4 @@ export * from './types';
 export { ClineMessage, ClineAsk, ClineSay } from '../shared/ExtensionMessage';
 export { ClineAskResponse } from '../shared/WebviewMessage';
 export { ApiConfiguration, ModelInfo } from '../shared/api';
+export { ClineAPI } from '../exports/cline';
