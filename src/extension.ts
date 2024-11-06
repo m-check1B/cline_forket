@@ -3,11 +3,9 @@
 import delay from "delay"
 import * as vscode from "vscode"
 import { ClineProvider } from "./core/webview/ClineProvider"
-import { WebSocketProvider } from "./core/webview/WebSocketProvider"
 import { createClineAPI } from "./exports"
 import "./utils/path" // necessary to have access to String.prototype.toPosix
 import { DIFF_VIEW_URI_SCHEME } from "./integrations/editor/DiffViewProvider"
-import { startExternalAPIServer } from './external-api/server'
 
 /*
 Built using https://github.com/microsoft/vscode-webview-ui-toolkit
@@ -28,37 +26,11 @@ export function activate(context: vscode.ExtensionContext) {
 
 	outputChannel.appendLine("Cline extension activated")
 
-	// Create providers
 	const sidebarProvider = new ClineProvider(context, outputChannel)
-	const wsProvider = new WebSocketProvider(context, outputChannel)
 
 	context.subscriptions.push(
 		vscode.window.registerWebviewViewProvider(ClineProvider.sideBarId, sidebarProvider, {
 			webviewOptions: { retainContextWhenHidden: true },
-		})
-	)
-
-	// Start External API Server with WebSocket support
-	const externalAPIServer = startExternalAPIServer(context, outputChannel, wsProvider)
-
-	// Add server to context subscriptions for proper cleanup
-	context.subscriptions.push({
-		dispose: async () => {
-			externalAPIServer.close()
-			await wsProvider.dispose()
-			outputChannel.appendLine('Cline External API Server stopped')
-		}
-	})
-
-	// Add commands to start/stop external API server
-	context.subscriptions.push(
-		vscode.commands.registerCommand('cline.startExternalAPIServer', () => {
-			outputChannel.appendLine('Manually starting External API Server')
-			startExternalAPIServer(context, outputChannel, wsProvider)
-		}),
-		vscode.commands.registerCommand('cline.stopExternalAPIServer', () => {
-			outputChannel.appendLine('Manually stopping External API Server')
-			externalAPIServer.close()
 		})
 	)
 
@@ -104,10 +76,8 @@ export function activate(context: vscode.ExtensionContext) {
 		await vscode.commands.executeCommand("workbench.action.lockEditorGroup")
 	}
 
-	context.subscriptions.push(
-		vscode.commands.registerCommand("cline.popoutButtonClicked", openClineInNewTab),
-		vscode.commands.registerCommand("cline.openInNewTab", openClineInNewTab)
-	)
+	context.subscriptions.push(vscode.commands.registerCommand("cline.popoutButtonClicked", openClineInNewTab))
+	context.subscriptions.push(vscode.commands.registerCommand("cline.openInNewTab", openClineInNewTab))
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand("cline.settingsButtonClicked", () => {
