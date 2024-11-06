@@ -12,18 +12,31 @@ import { ApiConfiguration, ModelInfo, ApiProvider } from '../shared/api';
 import { BrowserSession } from '../services/browser/BrowserSession';
 
 // WebSocket Types
+export type WebSocketMessageType = 
+    | ExtensionMessage['type']
+    | 'taskStart'
+    | 'taskStop'
+    | 'taskProgress'
+    | 'metrics'
+    | 'error';
+
 export interface WebSocketMessage {
-    type: 'state' | 'state_update' | 'metrics' | 'error';
+    type: WebSocketMessageType;
     data?: any;
     error?: string;
+    task?: TaskRequest;
+    progress?: {
+        message: string;
+        percentage?: number;
+    };
 }
 
-export interface WebSocketStateMessage extends WebSocketMessage {
+export interface WebSocketStateMessage {
     type: 'state' | 'state_update';
     data: ExtensionMessage;
 }
 
-export interface WebSocketMetricsMessage extends WebSocketMessage {
+export interface WebSocketMetricsMessage {
     type: 'metrics';
     data: {
         tokensIn: number;
@@ -34,7 +47,7 @@ export interface WebSocketMetricsMessage extends WebSocketMessage {
     };
 }
 
-export interface WebSocketErrorMessage extends WebSocketMessage {
+export interface WebSocketErrorMessage {
     type: 'error';
     error: string;
 }
